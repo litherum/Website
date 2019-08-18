@@ -122,8 +122,6 @@
     <script src="oneSphereWebGPUGLSLShaders.js"></script>
 
     <script>
-    
-
 
     const ShaderKind = {
         vertex: "Vertex",
@@ -175,7 +173,7 @@
         const canvas = document.getElementById("renderCanvas");
         const divFps = document.getElementById("fps");
 
-        const engine = new BABYLON.WebGPUEngine(canvas);
+        const engine = new BABYLON.WebGPUEngine(canvas, {antialiasing: false});
         await engine.initAsync({shaderc: Shaderc});
 
         const scene = new BABYLON.Scene(engine);
