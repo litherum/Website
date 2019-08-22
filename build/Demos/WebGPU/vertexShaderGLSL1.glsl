@@ -100,9 +100,9 @@ mat3 transposeMat3(mat3 inMatrix) {
     vec3 i1 = inMatrix[1];
     vec3 i2 = inMatrix[2];
     mat3 outMatrix = mat3(
-        vec3(i0.x,i1.x,i2.x),
-        vec3(i0.y,i1.y,i2.y),
-        vec3(i0.z,i1.z,i2.z)
+        vec3(i0.x, i1.x, i2.x),
+        vec3(i0.y, i1.y, i2.y),
+        vec3(i0.z, i1.z, i2.z)
     );
     return outMatrix;
 }
@@ -133,7 +133,7 @@ float square(float value) {
 }
 
 float pow5(float value) {
-    float sq = value*value;
+    float sq = value * value;
     return sq * sq * value;
 }
 
@@ -185,7 +185,7 @@ void main(void) {
     vec3 positionUpdated = position;
     vec3 normalUpdated = normal;
     mat4 finalWorld = world;
-    gl_Position = viewProjection*finalWorld * vec4(positionUpdated, 1.0);
+    gl_Position = viewProjection * finalWorld * vec4(positionUpdated, 1.0);
     vec4 worldPos = finalWorld * vec4(positionUpdated, 1.0);
     vPositionW = vec3(worldPos);
     mat3 normalWorld = mat3(finalWorld);
