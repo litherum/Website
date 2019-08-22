@@ -179,7 +179,7 @@ void main(void) {
     vPositionW = vec3(worldPos);
     mat3 normalWorld = mat3(finalWorld);
     vNormalW = normalize(normalWorld * normalUpdated);
-    vec2 uvUpdated = vec2(0.,0.);
-    vec2 uv2 = vec2(0.,0.);
+    vec2 uvUpdated = vec2(0., 0.);
+    vec2 uv2 = vec2(0., 0.);
     gl_Position.y *= -1.;
 }
