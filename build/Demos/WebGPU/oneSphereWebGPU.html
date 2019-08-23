@@ -120,6 +120,7 @@
     <div>
 
     <script src="oneSphereWebGPUGLSLShaders.js"></script>
+    <script src="oneSphereWebGPUWHLSLShaders.js"></script>
 
     <script>
 
@@ -130,8 +131,8 @@
     };
 
     class CompileResult {
-        constructor() {
-        
+        constructor(result) {
+            this.result = result;
         }
 
         GetErrorMessage() {
@@ -139,7 +140,7 @@
         }
 
         GetBinary() {
-            return "result";
+            return this.result;
         }
     }
 
@@ -151,15 +152,24 @@
     class Compiler {
         constructor() {
         }
+
         CompileGlslToSpv(source, kind, something, entryPointName, options) {
-            if (source == vertexShaderGLSL1 || source == fragmentShaderGLSL1 || source == vertexShaderGLSL2 || source == fragmentShaderGLSL2) {
-                alert("Recognized");
+            let whlslSource;
+            switch (source) {
+            case vertexShaderGLSL1:
+                whlslSource = vertexShaderWHLSL1;
+                break;
+            case fragmentShaderGLSL1:
+                whlslSource = fragmentShaderWHLSL1;
+                break;
+            case vertexShaderGLSL2:
+                whlslSource = vertexShaderWHLSL2;
+                break;
+            case fragmentShaderGLSL2:
+                whlslSource = fragmentShaderWHLSL2;
+                break;
             }
-            let a = new Array();
-            for (let i = 0; i < source.length; ++i)
-                a.push(source.charCodeAt(i));
-            let dump = a.join(",");
-            return new CompileResult();
+            return new CompileResult(whlslSource);
         }
     }
 
