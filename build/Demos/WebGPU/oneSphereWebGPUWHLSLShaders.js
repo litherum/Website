@@ -245,8 +245,86 @@ struct Mesh {
     float visibility;
 }
 
+struct Material {
+    float2 vAlbedoInfos;
+    float4 vAmbientInfos;
+    float2 vOpacityInfos;
+    float2 vEmissiveInfos;
+    float2 vLightmapInfos;
+    float3 vReflectivityInfos;
+    float2 vMicroSurfaceSamplerInfos;
+    float2 vReflectionInfos;
+    float3 vReflectionPosition;
+    float3 vReflectionSize;
+    float3 vBumpInfos;
+    float4x4 albedoMatrix;
+    float4x4 ambientMatrix;
+    float4x4 opacityMatrix;
+    float4x4 emissiveMatrix;
+    float4x4 lightmapMatrix;
+    float4x4 reflectivityMatrix;
+    float4x4 microSurfaceSamplerMatrix;
+    float4x4 bumpMatrix;
+    float2 vTangentSpaceParams;
+    float4x4 reflectionMatrix;
+    float3 vReflectionColor;
+    float4 vAlbedoColor;
+    float4 vLightingIntensity;
+    float3 vReflectionMicrosurfaceInfos;
+    float pointSize;
+    float4 vReflectivityColor;
+    float3 vEmissiveColor;
+    float4 vEyePosition;
+    float3 vAmbientColor;
+    float2 vDebugMode;
+    float2 vClearCoatParams;
+    float4 vClearCoatRefractionParams;
+    float2 vClearCoatInfos;
+    float4x4 clearCoatMatrix;
+    float2 vClearCoatBumpInfos;
+    float2 vClearCoatTangentSpaceParams;
+    float4x4 clearCoatBumpMatrix;
+    float4 vClearCoatTintParams;
+    float clearCoatColorAtDistance;
+    float2 vClearCoatTintInfos;
+    float4x4 clearCoatTintMatrix;
+    float3 vAnisotropy;
+    float2 vAnisotropyInfos;
+    float4x4 anisotropyMatrix;
+    float4 vSheenColor;
+    float2 vSheenInfos;
+    float4x4 sheenMatrix;
+    float3 vRefractionMicrosurfaceInfos;
+    float4 vRefractionInfos;
+    float4x4 refractionMatrix;
+    float2 vThicknessInfos;
+    float4x4 thicknessMatrix;
+    float2 vThicknessParam;
+    float3 vDiffusionDistance;
+    float4 vTintColor;
+    float3 vSubSurfaceIntensity;
+    float3 vSphericalL00;
+    float3 vSphericalL1_1;
+    float3 vSphericalL10;
+    float3 vSphericalL11;
+    float3 vSphericalL2_2;
+    float3 vSphericalL2_1;
+    float3 vSphericalL20;
+    float3 vSphericalL21;
+    float3 vSphericalL22;
+    float3 vSphericalX;
+    float3 vSphericalY;
+    float3 vSphericalZ;
+    float3 vSphericalXX_ZZ;
+    float3 vSphericalYY_ZZ;
+    float3 vSphericalZZ;
+    float3 vSphericalXY;
+    float3 vSphericalYZ;
+    float3 vSphericalZX;
+};
+
 struct BindGroupB {
-    constant float[] aBuffer : register(b0, space1);
+    constant Material[] aBuffer : register(b0, space1);
     constant Mesh[] mesh : register(b1, space1);
 }
 
