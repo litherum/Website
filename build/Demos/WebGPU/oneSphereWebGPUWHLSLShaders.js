@@ -13,7 +13,7 @@ struct Scene {
 
 struct BindGroupA {
     constant Scene[] scene : register(b0, space0);
-    Texture2D<float> environmentBrdfSamplerTexture : register(t1, space0);
+    Texture2D<float4> environmentBrdfSamplerTexture : register(t1, space0);
     sampler environmentBrdfSamplerSampler : register(s2, space0);
 }
 
@@ -106,7 +106,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    Texture2D<float> reflectionSamplerTexture : register(t0, space2);
+    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
 }
 
@@ -223,7 +223,7 @@ struct Scene {
 
 struct BindGroupA {
     constant Scene[] scene : register(b0, space0);
-    Texture2D<float> environmentBrdfSamplerTexture : register(t1, space0);
+    Texture2D<float4> environmentBrdfSamplerTexture : register(t1, space0);
     sampler environmentBrdfSamplerSampler : register(s2, space0);
 }
 
@@ -316,7 +316,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    Texture2D<float> reflectionSamplerTexture : register(t0, space2);
+    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
 }
 
@@ -520,12 +520,12 @@ float3 getEnergyConservationFactor(float3 specularEnvironmentR0, float3 environm
     return float3(1.0, 1.0, 1.0) + specularEnvironmentR0 * (1.0 / environmentBrdf.y - 1.0);
 }
 
-/*float3 getBRDFLookup(float NdotV, float perceptualRoughness) {
+float3 getBRDFLookup(float NdotV, float perceptualRoughness, Texture2D<float4> environmentBrdfSamplerTexture, sampler environmentBrdfSamplerSampler) {
     float2 UV = float2(NdotV, perceptualRoughness);
-    float4 brdfLookup = texture(sampler2D(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler), UV);
+    float4 brdfLookup = Sample(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler, UV);
     brdfLookup.xyz = fromRGBD(brdfLookup);
     return brdfLookup.xyz;
-}*/
+}
 
 float3 getReflectanceFromBRDFLookup(float3 specularEnvironmentR0, float3 environmentBrdf) {
     float3 reflectance = lerp(environmentBrdf.xxx, environmentBrdf.yyy, specularEnvironmentR0);
@@ -721,7 +721,7 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     float reflectionLOD = getLodFromAlphaG(bindGroupB.material[0].vReflectionMicrosurfaceInfos.x, alphaG);
     reflectionLOD = reflectionLOD * bindGroupB.material[0].vReflectionMicrosurfaceInfos.y + bindGroupB.material[0].vReflectionMicrosurfaceInfos.z;
     float requestedReflectionLOD = reflectionLOD;
-    /*environmentRadiance = textureLod(samplerCube(reflectionSamplerTexture, reflectionSamplerSampler), reflectionCoords, requestedReflectionLOD);*/
+    environmentRadiance = SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
     environmentRadiance.xyz = fromRGBD(environmentRadiance);
     environmentIrradiance = vEnvironmentIrradiance;
     environmentRadiance.xyz *= bindGroupB.material[0].vReflectionInfos.x;
@@ -731,7 +731,7 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     float reflectance90 = fresnelGrazingReflectance(reflectance);
     float3 specularEnvironmentR0 = surfaceReflectivityColor.xyz;
     float3 specularEnvironmentR90 = float3(1.0, 1.0, 1.0) * reflectance90;
-    float3 environmentBrdf = float3(0, 0, 0); // getBRDFLookup(NdotV, roughness);
+    float3 environmentBrdf = getBRDFLookup(NdotV, roughness, bindGroupA.environmentBrdfSamplerTexture, bindGroupA.environmentBrdfSamplerSampler);
     float3 energyConservationFactor = getEnergyConservationFactor(specularEnvironmentR0, environmentBrdf);
     float3 diffuseBase = float3(0., 0., 0.);
     PreLightingInfo preInfo;
@@ -783,7 +783,7 @@ struct Scene {
 
 struct BindGroupA {
     constant Scene[] scene : register(b0, space0);
-    Texture2D<float> environmentBrdfSamplerTexture : register(t1, space0);
+    Texture2D<float4> environmentBrdfSamplerTexture : register(t1, space0);
     sampler environmentBrdfSamplerSampler : register(s2, space0);
 }
 
@@ -876,7 +876,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    Texture2D<float> reflectionSamplerTexture : register(t0, space2);
+    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
 }
 
