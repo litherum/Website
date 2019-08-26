@@ -764,7 +764,7 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     finalColor = max(finalColor, float4(0.0, 0.0, 0.0, 0.0));
     finalColor = applyImageProcessing(finalColor);
     finalColor.w *= bindGroupB.mesh[0].visibility;
-    return float4(1, 1, 1, 1);
+    return finalColor;
 }
 `;
 
@@ -974,6 +974,6 @@ vertex Output main(float3 position : attribute(0), float3 normal : attribute(1),
 
 const fragmentShaderWHLSL2 = `
 fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribute(1), float3 vPositionUVW : attribute(2)) : SV_Target 0 {
-    return float4(0, 1, 0, 1);
+    return float4(0, 1, 1, 1);
 }
 `;
