@@ -390,6 +390,309 @@ float3 fromRGBD(float4 rgbd) {
     return rgbd.xyz / rgbd.w;
 }
 
+float convertRoughnessToAverageSlope(float roughness) {
+    return square(roughness) + 0.0005;
+}
+
+float fresnelGrazingReflectance(float reflectance0) {
+    float reflectance90 = clamp(reflectance0 * 25.0, 0.0, 1.0);
+    return reflectance90;
+}
+
+float2 getAARoughnessFactors(float3 normalVector) {
+    return float2(0., 0.);
+}
+
+float4 applyImageProcessing(float4 result) {
+    result.xyz = toGammaSpace(result.xyz);
+    result.xyz = clamp(result.xyz, float3(0.0, 0.0, 0.0), float3(1.0, 1.0, 1.0));
+    return result;
+}
+
+float3 computeEnvironmentIrradiance(float3 normal, constant Material* material) {
+    return material->vSphericalL00
+        + material->vSphericalL1_1 * (normal.y)
+        + material->vSphericalL10 * (normal.z)
+        + material->vSphericalL11 * (normal.x)
+        + material->vSphericalL2_2 * (normal.y * normal.x)
+        + material->vSphericalL2_1 * (normal.y * normal.z)
+        + material->vSphericalL20 * ((3.0 * normal.z * normal.z) - 1.0)
+        + material->vSphericalL21 * (normal.z * normal.x)
+        + material->vSphericalL22 * (normal.x * normal.x - (normal.y * normal.y));
+}
+
+struct PreLightingInfo {
+    float3 lightOffset;
+    float lightDistanceSquared;
+    float lightDistance;
+    float attenuation;
+    float3 L;
+    float3 H;
+    float NdotV;
+    float NdotLUnclamped;
+    float NdotL;
+    float VdotH;
+    float roughness;
+};
+
+PreLightingInfo computePointAndSpotPreLightingInfo(float4 lightData, float3 V, float3 N, float3 vPositionW) {
+    PreLightingInfo result;
+    result.lightOffset = lightData.xyz - vPositionW;
+    result.lightDistanceSquared = dot(result.lightOffset, result.lightOffset);
+    result.lightDistance = sqrt(result.lightDistanceSquared);
+    result.L = normalize(result.lightOffset);
+    result.H = normalize(V + result.L);
+    result.VdotH = clamp(dot(V, result.H), 0.0, 1.0);
+    result.NdotLUnclamped = dot(N, result.L);
+    result.NdotL = clamp(result.NdotLUnclamped, 0.0000001, 1.0);
+    return result;
+}
+
+PreLightingInfo computeDirectionalPreLightingInfo(float4 lightData, float3 V, float3 N) {
+    PreLightingInfo result;
+    result.lightDistance = length(-lightData.xyz);
+    result.L = normalize(-lightData.xyz);
+    result.H = normalize(V + result.L);
+    result.VdotH = clamp(dot(V, result.H), 0.0, 1.0);
+    result.NdotLUnclamped = dot(N, result.L);
+    result.NdotL = clamp(result.NdotLUnclamped, 0.0000001, 1.0);
+    return result;
+}
+
+PreLightingInfo computeHemisphericPreLightingInfo(float4 lightData, float3 V, float3 N) {
+    PreLightingInfo result;
+    result.NdotL = dot(N, lightData.xyz) * 0.5 + 0.5;
+    result.NdotL = clamp(result.NdotL, 0.0000001, 1.0);
+    result.NdotLUnclamped = result.NdotL;
+    return result;
+}
+
+float computeDistanceLightFalloff_Standard(float3 lightOffset, float range) {
+    return max(0., 1.0 - length(lightOffset) / range);
+}
+
+float computeDistanceLightFalloff_Physical(float lightDistanceSquared) {
+    return 1.0 / max(lightDistanceSquared, 0.0000001);
+}
+
+float computeDistanceLightFalloff_GLTF(float lightDistanceSquared, float inverseSquaredRange) {
+    float lightDistanceFalloff = 1.0 / max(lightDistanceSquared, 0.0000001);
+    float factor = lightDistanceSquared * inverseSquaredRange;
+    float attenuation = clamp(1.0 - factor * factor, 0.0, 1.0);
+    attenuation *= attenuation;
+    lightDistanceFalloff *= attenuation;
+    return lightDistanceFalloff;
+}
+
+float computeDistanceLightFalloff(float3 lightOffset, float lightDistanceSquared, float range, float inverseSquaredRange) {
+    return computeDistanceLightFalloff_Physical(lightDistanceSquared);
+}
+
+float computeDirectionalLightFalloff_Standard(float3 lightDirection, float3 directionToLightCenterW, float cosHalfAngle, float exponent) {
+    float falloff = 0.0;
+    float cosAngle = max(dot(-lightDirection, directionToLightCenterW), 0.0000001);
+    if (cosAngle >= cosHalfAngle) {
+        falloff = max(0., pow(cosAngle, exponent));
+    }
+    return falloff;
+}
+
+float computeDirectionalLightFalloff_Physical(float3 lightDirection, float3 directionToLightCenterW, float cosHalfAngle) {
+    float kMinusLog2ConeAngleIntensityRatio = 6.64385618977;
+    float concentrationKappa = kMinusLog2ConeAngleIntensityRatio / (1.0 - cosHalfAngle);
+    float4 lightDirectionSpreadSG = float4(-lightDirection * concentrationKappa, -concentrationKappa);
+    float falloff = exp2(dot(float4(directionToLightCenterW, 1.0), lightDirectionSpreadSG));
+    return falloff;
+}
+
+float computeDirectionalLightFalloff_GLTF(float3 lightDirection, float3 directionToLightCenterW, float lightAngleScale, float lightAngleOffset) {
+    float cd = dot(-lightDirection, directionToLightCenterW);
+    float falloff = clamp(cd * lightAngleScale + lightAngleOffset, 0.0, 1.0);
+    falloff *= falloff;
+    return falloff;
+}
+
+float computeDirectionalLightFalloff(float3 lightDirection, float3 directionToLightCenterW, float cosHalfAngle, float exponent, float lightAngleScale, float lightAngleOffset) {
+    return computeDirectionalLightFalloff_Physical(lightDirection, directionToLightCenterW, cosHalfAngle);
+}
+
+float3 getEnergyConservationFactor(float3 specularEnvironmentR0, float3 environmentBrdf) {
+    return float3(1.0, 1.0, 1.0) + specularEnvironmentR0 * (1.0 / environmentBrdf.y - 1.0);
+}
+
+/*float3 getBRDFLookup(float NdotV, float perceptualRoughness) {
+    float2 UV = float2(NdotV, perceptualRoughness);
+    float4 brdfLookup = texture(sampler2D(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler), UV);
+    brdfLookup.xyz = fromRGBD(brdfLookup);
+    return brdfLookup.xyz;
+}*/
+
+float3 getReflectanceFromBRDFLookup(float3 specularEnvironmentR0, float3 environmentBrdf) {
+    float3 reflectance = lerp(environmentBrdf.xxx, environmentBrdf.yyy, specularEnvironmentR0);
+    return reflectance;
+}
+
+float3 fresnelSchlickGGX(float VdotH, float3 reflectance0, float3 reflectance90) {
+    return reflectance0 + (reflectance90 - reflectance0) * pow5(1.0 - VdotH);
+}
+
+float fresnelSchlickGGX(float VdotH, float reflectance0, float reflectance90) {
+    return reflectance0 + (reflectance90 - reflectance0) * pow5(1.0 - VdotH);
+}
+
+float normalDistributionFunction_TrowbridgeReitzGGX(float NdotH, float alphaG) {
+    float a2 = square(alphaG);
+    float d = NdotH * NdotH * (a2 - 1.0) + 1.0;
+    return a2 / (3.1415926535897932384626433832795 * d * d);
+}
+
+float smithVisibility_GGXCorrelated(float NdotL, float NdotV, float alphaG) {
+    float a2 = alphaG * alphaG;
+    float GGXV = NdotL * sqrt(NdotV * (NdotV - a2 * NdotV) + a2);
+    float GGXL = NdotV * sqrt(NdotL * (NdotL - a2 * NdotL) + a2);
+    return 0.5 / (GGXV + GGXL);
+}
+
+float diffuseBRDF_Burley(float NdotL, float NdotV, float VdotH, float roughness) {
+    float diffuseFresnelNV = pow5(clamp(1.0 - NdotL, 0.0000001, 1.0));
+    float diffuseFresnelNL = pow5(clamp(1.0 - NdotV, 0.0000001, 1.0));
+    float diffuseFresnel90 = 0.5 + 2.0 * VdotH * VdotH * roughness;
+    float fresnel = (1.0 + (diffuseFresnel90 - 1.0) * diffuseFresnelNL) *
+        (1.0 + (diffuseFresnel90 - 1.0) * diffuseFresnelNV);
+    return fresnel / 3.1415926535897932384626433832795;
+}
+
+struct lightingInfo {
+    float3 diffuse;
+}
+
+float adjustRoughnessFromLightProperties(float roughness, float lightRadius, float lightDistance) {
+    float lightRoughness = lightRadius / lightDistance;
+    float totalRoughness = clamp(lightRoughness + roughness, 0.0, 1.0);
+    return totalRoughness;
+}
+
+float3 computeHemisphericDiffuseLighting(PreLightingInfo info, float3 lightColor, float3 groundColor) {
+    return lerp(groundColor, lightColor, float3(info.NdotL, info.NdotL, info.NdotL));
+}
+
+float3 computeDiffuseLighting(PreLightingInfo info, float3 lightColor) {
+    float diffuseTerm = diffuseBRDF_Burley(info.NdotL, info.NdotV, info.VdotH, info.roughness);
+    return diffuseTerm * info.attenuation * info.NdotL * lightColor;
+}
+
+float2 computeProjectionTextureDiffuseLightingUV(float4x4 textureProjectionMatrix, float3 vPositionW) {
+    float4 strq = mul(textureProjectionMatrix, float4(vPositionW, 1.0));
+    strq /= strq.w;
+    return strq.xy;
+}
+
+float getLodFromAlphaG(float cubeMapDimensionPixels, float microsurfaceAverageSlope) {
+    float microsurfaceAverageSlopeTexels = cubeMapDimensionPixels * microsurfaceAverageSlope;
+    float lod = log2(microsurfaceAverageSlopeTexels);
+    return lod;
+}
+
+float getLinearLodFromRoughness(float cubeMapDimensionPixels, float roughness) {
+    float lod = log2(cubeMapDimensionPixels) * roughness;
+    return lod;
+}
+
+float environmentRadianceOcclusion(float ambientOcclusion, float NdotVUnclamped) {
+    float temp = NdotVUnclamped + ambientOcclusion;
+    return clamp(square(temp) - 1.0 + ambientOcclusion, 0.0, 1.0);
+}
+
+float environmentHorizonOcclusion(float3 view, float3 normal) {
+    float3 reflection = reflect(view, normal);
+    float temp = clamp(1.0 + 1.1 * dot(reflection, normal), 0.0, 1.0);
+    return square(temp);
+}
+
+float3 parallaxCorrectNormal(float3 vertexPos, float3 origVec, float3 cubeSize, float3 cubePos) {
+    float3 invOrigVec = float3(1.0, 1.0, 1.0) / origVec;
+    float3 halfSize = cubeSize * 0.5;
+    float3 intersecAtMaxPlane = (cubePos + halfSize - vertexPos) * invOrigVec;
+    float3 intersecAtMinPlane = (cubePos - halfSize - vertexPos) * invOrigVec;
+    float3 largestIntersec = max(intersecAtMaxPlane, intersecAtMinPlane);
+    float distance = min(min(largestIntersec.x, largestIntersec.y), largestIntersec.z);
+    float3 intersectPositionWS = vertexPos + origVec * distance;
+    return intersectPositionWS - cubePos;
+}
+
+float3 computeFixedEquirectangularCoords(float4 worldPos, float3 worldNormal, float3 direction) {
+    float lon = atan2(direction.z, direction.x);
+    float lat = acos(direction.y);
+    float2 sphereCoords = float2(lon, lat) * 0.15915494 * 2.0;
+    float s = sphereCoords.x * 0.5 + 0.5;
+    float t = sphereCoords.y;
+    return float3(s, t, 0);
+}
+
+float3 computeMirroredFixedEquirectangularCoords(float4 worldPos, float3 worldNormal, float3 direction) {
+    float lon = atan2(direction.z, direction.x);
+    float lat = acos(direction.y);
+    float2 sphereCoords = float2(lon, lat) * 0.15915494 * 2.0;
+    float s = sphereCoords.x * 0.5 + 0.5;
+    float t = sphereCoords.y;
+    return float3(1.0 - s, t, 0);
+}
+
+float3 computeEquirectangularCoords(float4 worldPos, float3 worldNormal, float3 eyePosition, float4x4 reflectionMatrix) {
+    float3 cameraToVertex = normalize(worldPos.xyz - eyePosition);
+    float3 r = normalize(reflect(cameraToVertex, worldNormal));
+    r = mul(reflectionMatrix, float4(r, 0)).xyz;
+    float lon = atan2(r.z, r.x);
+    float lat = acos(r.y);
+    float2 sphereCoords = float2(lon, lat) * 0.15915494 * 2.0;
+    float s = sphereCoords.x * 0.5 + 0.5;
+    float t = sphereCoords.y;
+    return float3(s, t, 0);
+}
+
+float3 computeSphericalCoords(float4 worldPos, float3 worldNormal, float4x4 view, float4x4 reflectionMatrix) {
+    float3 viewDir = normalize(mul(view, worldPos).xyz);
+    float3 viewNormal = normalize(mul(view, float4(worldNormal, 0.0)).xyz);
+    float3 r = reflect(viewDir, viewNormal);
+    r = mul(reflectionMatrix, float4(r, 0)).xyz;
+    r.z = r.z - 1.0;
+    float m = 2.0 * length(r);
+    return float3(r.x / m + 0.5, 1.0 - r.y / m - 0.5, 0);
+}
+
+float3 computePlanarCoords(float4 worldPos, float3 worldNormal, float3 eyePosition, float4x4 reflectionMatrix) {
+    float3 viewDir = worldPos.xyz - eyePosition;
+    float3 coords = normalize(reflect(viewDir, worldNormal));
+    return mul(reflectionMatrix, float4(coords, 1)).xyz;
+}
+
+float3 computeCubicCoords(float4 worldPos, float3 worldNormal, float3 eyePosition, float4x4 reflectionMatrix) {
+    float3 viewDir = normalize(worldPos.xyz - eyePosition);
+    float3 coords = reflect(viewDir, worldNormal);
+    coords = mul(reflectionMatrix, float4(coords, 0)).xyz;
+    return coords;
+}
+
+float3 computeCubicLocalCoords(float4 worldPos, float3 worldNormal, float3 eyePosition, float4x4 reflectionMatrix, float3 reflectionSize, float3 reflectionPosition) {
+    float3 viewDir = normalize(worldPos.xyz - eyePosition);
+    float3 coords = reflect(viewDir, worldNormal);
+    coords = parallaxCorrectNormal(worldPos.xyz, coords, reflectionSize, reflectionPosition);
+    coords = mul(reflectionMatrix, float4(coords, 0)).xyz;
+    return coords;
+}
+
+float3 computeProjectionCoords(float4 worldPos, float4x4 view, float4x4 reflectionMatrix) {
+    return mul(reflectionMatrix, mul(view, worldPos)).xyz;
+}
+
+float3 computeSkyBoxCoords(float3 positionW, float4x4 reflectionMatrix) {
+    return mul(reflectionMatrix, float4(positionW, 0)).xyz;
+}
+
+float3 computeReflectionCoords(float4 worldPos, float3 worldNormal, float4 vEyePosition, float4x4 reflectionMatrix) {
+    return computeCubicCoords(worldPos, worldNormal, vEyePosition.xyz, reflectionMatrix);
+}
+
 fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribute(1), float3 vEnvironmentIrradiance : attribute(2), BindGroupA bindGroupA, BindGroupB bindGroupB, BindGroupC bindGroupC) : SV_Target 0 {
     return float4(1, 0, 0, 1);
 }

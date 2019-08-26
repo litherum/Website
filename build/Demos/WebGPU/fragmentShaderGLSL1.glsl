@@ -390,7 +390,7 @@ float environmentHorizonOcclusion(vec3 view, vec3 normal) {
     return square(temp);
 }
 
-vec3 parallaxCorrectNormal(vec3 vertexPos, vec3 origVec, vec3 cubeSize, vec3 cubePos ) {
+vec3 parallaxCorrectNormal(vec3 vertexPos, vec3 origVec, vec3 cubeSize, vec3 cubePos) {
     vec3 invOrigVec = vec3(1.0, 1.0, 1.0) / origVec;
     vec3 halfSize = cubeSize * 0.5;
     vec3 intersecAtMaxPlane = (cubePos + halfSize - vertexPos) * invOrigVec;
@@ -413,7 +413,7 @@ vec3 computeFixedEquirectangularCoords(vec4 worldPos, vec3 worldNormal, vec3 dir
 vec3 computeMirroredFixedEquirectangularCoords(vec4 worldPos, vec3 worldNormal, vec3 direction) {
     float lon = atan(direction.z, direction.x);
     float lat = acos(direction.y);
-    vec2 sphereCoords = vec2(lon,lat) * 0.15915494 * 2.0;
+    vec2 sphereCoords = vec2(lon, lat) * 0.15915494 * 2.0;
     float s = sphereCoords.x * 0.5 + 0.5;
     float t = sphereCoords.y;
     return vec3(1.0 - s, t, 0);
@@ -457,7 +457,7 @@ vec3 computeCubicCoords(vec4 worldPos, vec3 worldNormal, vec3 eyePosition, mat4 
 vec3 computeCubicLocalCoords(vec4 worldPos, vec3 worldNormal, vec3 eyePosition, mat4 reflectionMatrix, vec3 reflectionSize, vec3 reflectionPosition) {
     vec3 viewDir = normalize(worldPos.xyz - eyePosition);
     vec3 coords = reflect(viewDir, worldNormal);
-    coords = parallaxCorrectNormal(worldPos.xyz,coords, reflectionSize, reflectionPosition);
+    coords = parallaxCorrectNormal(worldPos.xyz, coords, reflectionSize, reflectionPosition);
     coords = vec3(reflectionMatrix * vec4(coords, 0));
     return coords;
 }
