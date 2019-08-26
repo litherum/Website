@@ -562,7 +562,7 @@ float diffuseBRDF_Burley(float NdotL, float NdotV, float VdotH, float roughness)
     return fresnel / 3.1415926535897932384626433832795;
 }
 
-struct lightingInfo {
+struct LightingInfo {
     float3 diffuse;
 }
 
@@ -694,7 +694,77 @@ float3 computeReflectionCoords(float4 worldPos, float3 worldNormal, float4 vEyeP
 }
 
 fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribute(1), float3 vEnvironmentIrradiance : attribute(2), BindGroupA bindGroupA, BindGroupB bindGroupB, BindGroupC bindGroupC) : SV_Target 0 {
-    return float4(1, 0, 0, 1);
+    float3 viewDirectionW = normalize(bindGroupB.material[0].vEyePosition.xyz - vPositionW);
+    float3 normalW = normalize(vNormalW);
+    float2 uvOffset = float2(0.0, 0.0);
+    float3 surfaceAlbedo = bindGroupB.material[0].vAlbedoColor.xyz;
+    float alpha = bindGroupB.material[0].vAlbedoColor.w;
+    float3 ambientOcclusionColor = float3(1., 1., 1.);
+    float microSurface = bindGroupB.material[0].vReflectivityColor.w;
+    float3 surfaceReflectivityColor = bindGroupB.material[0].vReflectivityColor.xyz;
+    float2 metallicRoughness = surfaceReflectivityColor.xy;
+    microSurface = 1.0 - metallicRoughness.y;
+    float3 baseColor = surfaceAlbedo;
+    float3 DefaultSpecularReflectanceDielectric = float3(0.04, 0.04, 0.04);
+    surfaceAlbedo = lerp(baseColor.xyz * (1.0 - DefaultSpecularReflectanceDielectric.x), float3(0., 0., 0.), float3(metallicRoughness.x, metallicRoughness.x, metallicRoughness.x));
+    surfaceReflectivityColor = lerp(DefaultSpecularReflectanceDielectric, baseColor, float3(metallicRoughness.x, metallicRoughness.x, metallicRoughness.x));
+    microSurface = clamp(microSurface, 0.0, 1.0);
+    float roughness = 1. - microSurface;
+    float NdotVUnclamped = dot(normalW, viewDirectionW);
+    float NdotV = abs(NdotVUnclamped) + 0.0000001;
+    float alphaG = convertRoughnessToAverageSlope(roughness);
+    float2 AARoughnessFactors = getAARoughnessFactors(normalW);
+    float4 environmentRadiance = float4(0., 0., 0., 0.);
+    float3 environmentIrradiance = float3(0., 0., 0.);
+    float3 reflectionVector = computeReflectionCoords(float4(vPositionW, 1.0), normalW, bindGroupB.material[0].vEyePosition, bindGroupB.material[0].reflectionMatrix);
+    float3 reflectionCoords = reflectionVector;
+    float reflectionLOD = getLodFromAlphaG(bindGroupB.material[0].vReflectionMicrosurfaceInfos.x, alphaG);
+    reflectionLOD = reflectionLOD * bindGroupB.material[0].vReflectionMicrosurfaceInfos.y + bindGroupB.material[0].vReflectionMicrosurfaceInfos.z;
+    float requestedReflectionLOD = reflectionLOD;
+    /*environmentRadiance = textureLod(samplerCube(reflectionSamplerTexture, reflectionSamplerSampler), reflectionCoords, requestedReflectionLOD);*/
+    environmentRadiance.xyz = fromRGBD(environmentRadiance);
+    environmentIrradiance = vEnvironmentIrradiance;
+    environmentRadiance.xyz *= bindGroupB.material[0].vReflectionInfos.x;
+    environmentRadiance.xyz *= bindGroupB.material[0].vReflectionColor.xyz;
+    environmentIrradiance *= bindGroupB.material[0].vReflectionColor.xyz;
+    float reflectance = max(max(surfaceReflectivityColor.x, surfaceReflectivityColor.y), surfaceReflectivityColor.z);
+    float reflectance90 = fresnelGrazingReflectance(reflectance);
+    float3 specularEnvironmentR0 = surfaceReflectivityColor.xyz;
+    float3 specularEnvironmentR90 = float3(1.0, 1.0, 1.0) * reflectance90;
+    float3 environmentBrdf = float3(0, 0, 0); // getBRDFLookup(NdotV, roughness);
+    float3 energyConservationFactor = getEnergyConservationFactor(specularEnvironmentR0, environmentBrdf);
+    float3 diffuseBase = float3(0., 0., 0.);
+    PreLightingInfo preInfo;
+    LightingInfo info;
+    float shadow = 1.;
+    float3 specularEnvironmentReflectance = getReflectanceFromBRDFLookup(specularEnvironmentR0, environmentBrdf);
+    float ambientMonochrome = getLuminance(ambientOcclusionColor);
+    float seo = environmentRadianceOcclusion(ambientMonochrome, NdotVUnclamped);
+    specularEnvironmentReflectance *= seo;
+    float3 finalIrradiance = environmentIrradiance;
+    finalIrradiance *= surfaceAlbedo.xyz;
+    float3 finalRadiance = environmentRadiance.xyz;
+    finalRadiance *= specularEnvironmentReflectance;
+    float3 finalRadianceScaled = finalRadiance * bindGroupB.material[0].vLightingIntensity.z;
+    finalRadianceScaled *= energyConservationFactor;
+    float3 finalDiffuse = diffuseBase;
+    finalDiffuse *= surfaceAlbedo.xyz;
+    finalDiffuse = max(finalDiffuse, float3(0.0, 0.0, 0.0));
+    float3 finalAmbient = bindGroupB.material[0].vAmbientColor;
+    finalAmbient *= surfaceAlbedo.xyz;
+    float3 finalEmissive = bindGroupB.material[0].vEmissiveColor;
+    float3 ambientOcclusionForDirectDiffuse = ambientOcclusionColor;
+    float4 finalColor = float4(
+        finalAmbient * ambientOcclusionColor +
+        finalDiffuse * ambientOcclusionForDirectDiffuse * bindGroupB.material[0].vLightingIntensity.x +
+        finalIrradiance * ambientOcclusionColor * bindGroupB.material[0].vLightingIntensity.z +
+        finalRadianceScaled +
+        finalEmissive * bindGroupB.material[0].vLightingIntensity.y,
+        alpha);
+    finalColor = max(finalColor, float4(0.0, 0.0, 0.0, 0.0));
+    finalColor = applyImageProcessing(finalColor);
+    finalColor.w *= bindGroupB.mesh[0].visibility;
+    return float4(1, 1, 1, 1);
 }
 `;
 

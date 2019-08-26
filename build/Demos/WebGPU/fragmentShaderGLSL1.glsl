@@ -528,7 +528,7 @@ void main() {
     finalIrradiance *= surfaceAlbedo.rgb;
     vec3 finalRadiance = environmentRadiance.rgb;
     finalRadiance *= specularEnvironmentReflectance;
-    vec3 finalRadianceScaled = finalRadiance*vLightingIntensity.z;
+    vec3 finalRadianceScaled = finalRadiance * vLightingIntensity.z;
     finalRadianceScaled *= energyConservationFactor;
     vec3 finalDiffuse = diffuseBase;
     finalDiffuse *= surfaceAlbedo.rgb;
@@ -539,7 +539,7 @@ void main() {
     vec3 ambientOcclusionForDirectDiffuse = ambientOcclusionColor;
     vec4 finalColor = vec4(
         finalAmbient * ambientOcclusionColor +
-        finalDiffuse * ambientOcclusionForDirectDiffuse*vLightingIntensity.x +
+        finalDiffuse * ambientOcclusionForDirectDiffuse * vLightingIntensity.x +
         finalIrradiance * ambientOcclusionColor * vLightingIntensity.z +
         finalRadianceScaled +
         finalEmissive * vLightingIntensity.y,
