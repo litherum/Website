@@ -721,7 +721,7 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     float reflectionLOD = getLodFromAlphaG(bindGroupB.material[0].vReflectionMicrosurfaceInfos.x, alphaG);
     reflectionLOD = reflectionLOD * bindGroupB.material[0].vReflectionMicrosurfaceInfos.y + bindGroupB.material[0].vReflectionMicrosurfaceInfos.z;
     float requestedReflectionLOD = reflectionLOD;
-    environmentRadiance = SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
+    environmentRadiance = float4(1, 1, 1, 1); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
     environmentRadiance.xyz = fromRGBD(environmentRadiance);
     environmentIrradiance = vEnvironmentIrradiance;
     environmentRadiance.xyz *= bindGroupB.material[0].vReflectionInfos.x;
