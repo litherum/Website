@@ -523,7 +523,6 @@ float3 getEnergyConservationFactor(float3 specularEnvironmentR0, float3 environm
 float3 getBRDFLookup(float NdotV, float perceptualRoughness, Texture2D<float4> environmentBrdfSamplerTexture, sampler environmentBrdfSamplerSampler) {
     float2 UV = float2(NdotV, perceptualRoughness);
     float4 brdfLookup = Sample(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler, UV);
-    brdfLookup.xyz = fromRGBD(brdfLookup);
     return brdfLookup.xyz;
 }
 
@@ -1268,7 +1267,6 @@ float3 getEnergyConservationFactor(float3 specularEnvironmentR0, float3 environm
 float3 getBRDFLookup(float NdotV, float perceptualRoughness, Texture2D<float4> environmentBrdfSamplerTexture, sampler environmentBrdfSamplerSampler) {
     float2 UV = float2(NdotV, perceptualRoughness);
     float4 brdfLookup = Sample(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler, UV);
-    brdfLookup.xyz = fromRGBD(brdfLookup);
     return brdfLookup.xyz;
 }
 

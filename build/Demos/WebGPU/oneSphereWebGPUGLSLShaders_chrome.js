@@ -506,7 +506,6 @@ vec3 getEnergyConservationFactor(const vec3 specularEnvironmentR0, const vec3 en
 vec3 getBRDFLookup(float NdotV, float perceptualRoughness) {
     vec2 UV = vec2(NdotV, perceptualRoughness);
     vec4 brdfLookup = texture(sampler2D(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler), UV);
-    brdfLookup.rgb = fromRGBD(brdfLookup.rgba);
     return brdfLookup.rgb;
 }
 
@@ -1235,7 +1234,6 @@ vec3 getEnergyConservationFactor(const vec3 specularEnvironmentR0, const vec3 en
 vec3 getBRDFLookup(float NdotV, float perceptualRoughness) {
     vec2 UV = vec2(NdotV, perceptualRoughness);
     vec4 brdfLookup = texture(sampler2D(environmentBrdfSamplerTexture, environmentBrdfSamplerSampler), UV);
-    brdfLookup.rgb = fromRGBD(brdfLookup.rgba);
     return brdfLookup.rgb;
 }
 
