@@ -168,6 +168,8 @@
             case fragmentShaderGLSL2:
                 whlslSource = fragmentShaderWHLSL2;
                 break;
+            default:
+                throw new Error("Unexpected shader!");
             }
             return new CompileResult(whlslSource);
         }

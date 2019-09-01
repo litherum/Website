@@ -96,8 +96,8 @@
     </style>
 
     <script src="https://code.jquery.com/pep/0.4.2/pep.min.js"></script>
-    
-    <script src="babylonWebGpu.max.js"></script>
+    <script src="https://preview.babylonjs.com/shaderc/shaderc.js"></script>
+    <script src="babylonWebGpu_chrome.max.js"></script>
     <script src="https://preview.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 </head>
 
@@ -119,62 +119,9 @@
         </div>
     <div>
     <script src="oneHelmetWebGPUGLSLShaders.js"></script>
-    <script src="oneHelmetWebGPUWHLSLShaders.js"></script>
+    <script src="oneHelmetWebGPUGLSLShaders_chrome.js"></script>
 
     <script>
-
-    const ShaderKind = {
-        vertex: "Vertex",
-        fragment: "Fragment",
-        compute: "Compute"
-    };
-
-    class CompileResult {
-        constructor(result) {
-            this.result = result;
-        }
-
-        GetErrorMessage() {
-            return null;
-        }
-
-        GetBinary() {
-            return this.result;
-        }
-    }
-
-    class CompileOptions {
-        constructor() {
-        }
-    }
-
-    class Compiler {
-        constructor() {
-        }
-
-        CompileGlslToSpv(source, kind, something, entryPointName, options) {
-            let whlslSource;
-            switch (source) {
-            case vertexShaderGLSL1:
-                whlslSource = vertexShaderWHLSL1;
-                break;
-            case fragmentShaderGLSL1:
-                whlslSource = fragmentShaderWHLSL1;
-                break;
-            case vertexShaderGLSL2:
-                whlslSource = vertexShaderWHLSL2;
-                break;
-            case fragmentShaderGLSL2:
-                whlslSource = fragmentShaderWHLSL2;
-                break;
-            default:
-                throw new Error("Unexpected shader!");
-            }
-            return new CompileResult(whlslSource);
-        }
-    }
-
-    let Shaderc = {Compiler, CompileOptions, shader_kind: ShaderKind};
 
     (async function() {
         if (!navigator.gpu) {
@@ -184,7 +131,60 @@
         const canvas = document.getElementById("renderCanvas");
         const divFps = document.getElementById("fps");
 
-        const engine = new BABYLON.WebGPUEngine(canvas, {antialiasing: false});
+        const wasmShaderc = await window.Shaderc({wasmBinaryFile: "https://preview.babylonjs.com/shaderc/shaderc.wasm"});
+
+        class CompileResult {
+            constructor(inner) {
+                this._inner = inner;
+            }
+
+            GetErrorMessage() {
+                return this._inner.GetErrorMessage();
+            }
+
+            GetBinary() {
+                return this._inner.GetBinary();
+            }
+        }
+
+        class CompileOptions {
+            constructor() {
+                this.inner = new wasmShaderc.CompileOptions();
+            }
+        }
+
+        class Compiler {
+            constructor() {
+                this._inner = new wasmShaderc.Compiler();
+            }
+
+            CompileGlslToSpv(source, kind, something, entryPointName, options) {
+                let glslSource;
+                switch (source) {
+                case vertexShaderGLSL1:
+                    glslSource = vertexShaderGLSL_chrome1;
+                    break;
+                case fragmentShaderGLSL1:
+                    glslSource = fragmentShaderGLSL_chrome1;
+                    break;
+                case vertexShaderGLSL2:
+                    glslSource = vertexShaderGLSL_chrome2;
+                    break;
+                case fragmentShaderGLSL2:
+                    glslSource = fragmentShaderGLSL_chrome2;
+                    break;
+                default:
+                    alert("Unexpected shader!");
+                    break;
+                }
+                const result = this._inner.CompileGlslToSpv(glslSource, kind, something, entryPointName, options.inner);
+                return new CompileResult(result);
+            }
+        }
+
+        let Shaderc = {Compiler, CompileOptions, shader_kind: wasmShaderc.shader_kind};
+
+        const engine = new BABYLON.WebGPUEngine(canvas);
         await engine.initAsync({shaderc: Shaderc});
 
         const scene = new BABYLON.Scene(engine);

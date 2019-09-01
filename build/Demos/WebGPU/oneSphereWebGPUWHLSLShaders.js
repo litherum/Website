@@ -951,7 +951,6 @@ float3 fromRGBD(float4 rgbd) {
 
 vertex Output main(float3 position : attribute(0), float3 normal : attribute(1), BindGroupA bindGroupA, BindGroupB bindGroupB, BindGroupC bindGroupC) {
     Output output;
-    
     float3 positionUpdated = position;
     float3 normalUpdated = normal;
     output.vPositionUVW = positionUpdated;
