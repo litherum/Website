@@ -106,7 +106,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
+    Texture2D<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
     Texture2D<float4> albedoSamplerTexture : register(t2, space2);
     sampler albedoSamplerSampler : register(s3, space2);
@@ -311,7 +311,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
+    Texture2D<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
     Texture2D<float4> albedoSamplerTexture : register(t2, space2);
     sampler albedoSamplerSampler : register(s3, space2);
@@ -768,7 +768,7 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     float reflectionLOD = getLodFromAlphaG(bindGroupB.material[0].vReflectionMicrosurfaceInfos.x, alphaG);
     reflectionLOD = reflectionLOD * bindGroupB.material[0].vReflectionMicrosurfaceInfos.y + bindGroupB.material[0].vReflectionMicrosurfaceInfos.z;
     float requestedReflectionLOD = reflectionLOD;
-    environmentRadiance = Sample(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
+    environmentRadiance = Sample(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords.xy); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
     environmentRadiance.xyz = fromRGBD(environmentRadiance);
     float3 irradianceVector = mul(bindGroupB.material[0].reflectionMatrix, float4(normalW, 0)).xyz;
     environmentIrradiance = computeEnvironmentIrradiance(irradianceVector, &bindGroupB.material[0]);
@@ -929,7 +929,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
+    Texture2D<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
 }
 
@@ -1124,7 +1124,7 @@ struct BindGroupB {
 }
 
 struct BindGroupC {
-    TextureCube<float4> reflectionSamplerTexture : register(t0, space2);
+    Texture2D<float4> reflectionSamplerTexture : register(t0, space2);
     sampler reflectionSamplerSampler : register(s1, space2);
 }
 
@@ -1489,8 +1489,8 @@ float3 computeSkyBoxCoords(float3 positionW, float4x4 reflectionMatrix) {
     return mul(reflectionMatrix, float4(positionW, 0)).xyz;
 }
 
-float3 computeReflectionCoords(float4 worldPos, float3 worldNormal, float4 vEyePosition, float4x4 reflectionMatrix) {
-    return computeCubicCoords(worldPos, worldNormal, vEyePosition.xyz, reflectionMatrix);
+float3 computeReflectionCoords(float4 worldPos, float3 worldNormal, float3 vPositionUVW, float4x4 reflectionMatrix) {
+    return computeSkyBoxCoords(vPositionUVW, reflectionMatrix);
 }
 
 fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribute(1), float3 vPositionUVW : attribute(2), BindGroupA bindGroupA, BindGroupB bindGroupB, BindGroupC bindGroupC, bool frontFace : SV_IsFrontFace) : SV_Target 0 {
@@ -1511,12 +1511,12 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     float2 AARoughnessFactors = getAARoughnessFactors(normalW);
     float4 environmentRadiance = float4(0., 0., 0., 0.);
     float3 environmentIrradiance = float3(0., 0., 0.);
-    float3 reflectionVector = computeReflectionCoords(float4(vPositionW, 1.0), normalW, bindGroupB.material[0].vEyePosition, bindGroupB.material[0].reflectionMatrix);
+    float3 reflectionVector = computeReflectionCoords(float4(vPositionW, 1.0), normalW, vPositionUVW, bindGroupB.material[0].reflectionMatrix);
     float3 reflectionCoords = reflectionVector;
     float reflectionLOD = getLodFromAlphaG(bindGroupB.material[0].vReflectionMicrosurfaceInfos.x, alphaG);
     reflectionLOD = reflectionLOD * bindGroupB.material[0].vReflectionMicrosurfaceInfos.y + bindGroupB.material[0].vReflectionMicrosurfaceInfos.z;
     float requestedReflectionLOD = reflectionLOD;
-    environmentRadiance = Sample(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
+    environmentRadiance = Sample(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords.xy / float2(100, 100)); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
     environmentRadiance.xyz = fromRGBD(environmentRadiance);
     environmentRadiance.xyz *= bindGroupB.material[0].vReflectionInfos.x;
     environmentRadiance.xyz *= bindGroupB.material[0].vReflectionColor.xyz;
