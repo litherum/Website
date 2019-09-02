@@ -1436,7 +1436,10 @@ float3 computeSkyBoxCoords(float3 positionW, float4x4 reflectionMatrix) {
 }
 
 float3 computeReflectionCoords(float4 worldPos, float3 worldNormal, float3 vPositionUVW, float4x4 reflectionMatrix) {
-    return computeSkyBoxCoords(vPositionUVW, reflectionMatrix);
+    float r = length(vPositionUVW);
+    float gamma = atan2(vPositionUVW.x, vPositionUVW.z);
+    float theta = acos(vPositionUVW.y / r);
+    return float3(gamma / 3.1415926535897932384626433832795 + 0.5, theta / 3.1415926535897932384626433832795, r);
 }
 
 fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribute(1), float3 vPositionUVW : attribute(2), BindGroupA bindGroupA, BindGroupB bindGroupB, BindGroupC bindGroupC, bool frontFace : SV_IsFrontFace) : SV_Target 0 {
@@ -1462,7 +1465,7 @@ fragment float4 main(float3 vPositionW : attribute(0), float3 vNormalW : attribu
     float reflectionLOD = getLodFromAlphaG(bindGroupB.material[0].vReflectionMicrosurfaceInfos.x, alphaG);
     reflectionLOD = reflectionLOD * bindGroupB.material[0].vReflectionMicrosurfaceInfos.y + bindGroupB.material[0].vReflectionMicrosurfaceInfos.z;
     float requestedReflectionLOD = reflectionLOD;
-    environmentRadiance = Sample(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords.xy / float2(100, 100)); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
+    environmentRadiance = Sample(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords.xy); //SampleLevel(bindGroupC.reflectionSamplerTexture, bindGroupC.reflectionSamplerSampler, reflectionCoords, requestedReflectionLOD);
     environmentRadiance.xyz = fromRGBD(environmentRadiance);
     environmentRadiance.xyz *= bindGroupB.material[0].vReflectionInfos.x;
     environmentRadiance.xyz *= bindGroupB.material[0].vReflectionColor.xyz;
