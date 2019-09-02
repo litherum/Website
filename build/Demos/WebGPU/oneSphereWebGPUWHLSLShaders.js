@@ -93,7 +93,7 @@ struct Material {
     float3 vSphericalXY;
     float3 vSphericalYZ;
     float3 vSphericalZX;
-};
+}
 
 struct Mesh {
     float4x4 world;
@@ -194,7 +194,6 @@ float3 computeEnvironmentIrradiance(float3 normal, constant Material* material) 
 
 vertex Output main(float3 position : attribute(0), float3 normal : attribute(1), BindGroupA bindGroupA, BindGroupB bindGroupB, BindGroupC bindGroupC) {
     Output output;
-
     float3 positionUpdated = position;
     float3 normalUpdated = normal;
     float4x4 finalWorld = bindGroupB.mesh[0].world;
@@ -303,7 +302,7 @@ struct Material {
     float3 vSphericalXY;
     float3 vSphericalYZ;
     float3 vSphericalZX;
-};
+}
 
 struct Mesh {
     float4x4 world;
@@ -433,7 +432,7 @@ struct PreLightingInfo {
     float NdotL;
     float VdotH;
     float roughness;
-};
+}
 
 PreLightingInfo computePointAndSpotPreLightingInfo(float4 lightData, float3 V, float3 N, float3 vPositionW) {
     PreLightingInfo result;
@@ -862,7 +861,7 @@ struct Material {
     float3 vSphericalXY;
     float3 vSphericalYZ;
     float3 vSphericalZX;
-};
+}
 
 struct Mesh {
     float4x4 world;
@@ -1058,7 +1057,7 @@ struct Material {
     float3 vSphericalXY;
     float3 vSphericalYZ;
     float3 vSphericalZX;
-};
+}
 
 struct Mesh {
     float4x4 world;
@@ -1176,7 +1175,7 @@ struct PreLightingInfo {
     float NdotL;
     float VdotH;
     float roughness;
-};
+}
 
 PreLightingInfo computePointAndSpotPreLightingInfo(float4 lightData, float3 V, float3 N, float3 vPositionW) {
     PreLightingInfo result;
